@@ -1,68 +1,65 @@
-const todoForm = document.getElementById('todo-form');
-const todoInput = document.getElementById('todo-input');
-const todoDateTime = document.getElementById('todo-datetime');
-const todoList = document.getElementById('todo-list');
+document.addEventListener('DOMContentLoaded', loadTasks);
+document.getElementById('addTask').addEventListener('click', addTask);
 
-// Load saved tasks from storage
-chrome.storage.sync.get(['todos'], function (result) {
-  const todos = result.todos || [];
-  todos.forEach(({ task, datetime }) => addTodoToDOM(task, datetime));
-});
+function loadTasks() {
+    chrome.storage.local.get(['tasks'], function (result) {
+        const tasks = result.tasks || [];
+        const taskList = document.getElementById('taskList');
+        taskList.innerHTML = '';
+        tasks.forEach((task, index) => {
+            const li = document.createElement('li');
+            const taskText = document.createElement('span');
+            taskText.textContent = task.description;
 
-// Add new task
-todoForm.addEventListener('submit', function (e) {
-  e.preventDefault();
-  const task = todoInput.value.trim();
-  const datetime = todoDateTime.value.trim();
-  if (!task || !datetime) return;
+            const editButton = document.createElement('button');
+            editButton.textContent = 'Edit';
+            editButton.className = 'edit-button';
+            editButton.onclick = () => editTask(index);
 
-  chrome.storage.sync.get(['todos'], function (result) {
-    const todos = result.todos || [];
-    const newTask = { task, datetime };
-    todos.push(newTask);
-    chrome.storage.sync.set({ todos }, function () {
-      addTodoToDOM(task, datetime);
-      todoInput.value = '';
-      todoDateTime.value = '';
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.className = 'delete-button';
+            deleteButton.onclick = () => deleteTask(index);
+
+            li.appendChild(taskText);
+            li.appendChild(editButton);
+            li.appendChild(deleteButton);
+
+            taskList.appendChild(li);
+        });
     });
-  });
-});
-
-// Add a task to the DOM
-function addTodoToDOM(task, datetime) {
-  const li = document.createElement('li');
-
-  const taskDetails = document.createElement('div');
-  taskDetails.className = 'task-details';
-
-  const taskText = document.createElement('span');
-  taskText.textContent = task;
-
-  const taskTime = document.createElement('span');
-  taskTime.className = 'task-time';
-  taskTime.textContent = `Due: ${new Date(datetime).toLocaleString()}`;
-
-  taskDetails.appendChild(taskText);
-  taskDetails.appendChild(taskTime);
-
-  const deleteButton = document.createElement('button');
-  deleteButton.textContent = 'Delete';
-  deleteButton.addEventListener('click', function () {
-    removeTask(task, datetime, li);
-  });
-
-  li.appendChild(taskDetails);
-  li.appendChild(deleteButton);
-  todoList.appendChild(li);
 }
 
-// Remove task
-function removeTask(task, datetime, liElement) {
-  chrome.storage.sync.get(['todos'], function (result) {
-    let todos = result.todos || [];
-    todos = todos.filter((t) => t.task !== task || t.datetime !== datetime);
-    chrome.storage.sync.set({ todos }, function () {
-      todoList.removeChild(liElement);
+function addTask() {
+    const taskInput = document.getElementById('taskInput');
+    const taskDescription = taskInput.value.trim();
+
+    if (taskDescription) {
+        chrome.storage.local.get(['tasks'], function (result) {
+            const tasks = result.tasks || [];
+            tasks.push({ description: taskDescription });
+            chrome.storage.local.set({ tasks: tasks }, loadTasks);
+            taskInput.value = '';
+        });
+    }
+}
+
+function editTask(index) {
+    chrome.storage.local.get(['tasks'], function (result) {
+        const tasks = result.tasks || [];
+        const newTaskDescription = prompt('Edit your task:', tasks[index].description);
+
+        if (newTaskDescription !== null && newTaskDescription.trim() !== '') {
+            tasks[index].description = newTaskDescription;
+            chrome.storage.local.set({ tasks: tasks }, loadTasks);
+        }
     });
-  });
+}
+
+function deleteTask(index) {
+    chrome.storage.local.get(['tasks'], function (result) {
+        const tasks = result.tasks || [];
+        tasks.splice(index, 1);
+        chrome.storage.local.set({ tasks: tasks }, loadTasks);
+    });
 }
